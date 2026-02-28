@@ -5,9 +5,11 @@ from controller.routes import router
 from contextlib import asynccontextmanager
 import asyncio
 from streaming.data_streamer import streamer
+from models.database import init_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await init_db()
     streamer_task = asyncio.create_task(streamer.stream_data())
     yield
     streamer_task.cancel()

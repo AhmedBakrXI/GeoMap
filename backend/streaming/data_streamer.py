@@ -1,6 +1,8 @@
 import pandas as pd
 import asyncio
 from websocket.websocket_manager import manager
+from models.database import async_session
+from models.measurement import Measurement, COLUMN_MAPPING
 
 
 class DataStreamer:
@@ -21,11 +23,26 @@ class DataStreamer:
 
         for chunk in reader:
             chunk = chunk.where(pd.notnull(chunk), None)
-            print(f"Streaming chunk with {len(chunk)} records: {chunk.head(1)}") 
 
+            # Rename columns to model field names
+            chunk_renamed = chunk.rename(columns=COLUMN_MAPPING)
+            model_fields = set(COLUMN_MAPPING.values())
+            chunk_renamed = chunk_renamed[[c for c in chunk_renamed.columns if c in model_fields]]
+
+            records = chunk_renamed.to_dict(orient="records")
+
+            # Store in database
+            async with async_session() as session:
+                async with session.begin():
+                    measurements = [Measurement(**record) for record in records]
+                    session.add_all(measurements)
+
+            print(f"Stored and streaming chunk with {len(records)} records")
+
+            # Broadcast via websocket
             await manager.broadcast({
                 "type": "chunk",
-                "data": chunk.to_dict(orient="records")
+                "data": records
             })
 
             await asyncio.sleep(1)
