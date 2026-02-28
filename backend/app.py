@@ -2,8 +2,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from controller.routes import router
+from contextlib import asynccontextmanager
+import asyncio
+from streaming.data_streamer import streamer
 
-app = FastAPI(title="Telecom Geo-Visualization Backend")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    streamer_task = asyncio.create_task(streamer.stream_data())
+    yield
+    streamer_task.cancel()
+
+app = FastAPI(title="Telecom Geo-Visualization Backend", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
