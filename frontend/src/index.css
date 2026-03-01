@@ -1,68 +1,55 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+@theme {
+  --font-sans: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  --color-primary: #14a800;
+  --color-primary-hover: #0e9f6e;
+  --color-accent: #d1fae5;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-surface: #f9fafb;
+  --color-card: #ffffff;
+  --color-border: #e5e7eb;
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
+  --color-primary-green: var(--color-primary);
+  --color-dark-green: var(--color-primary-hover);
+  --color-light-green-accent: var(--color-accent);
+  --color-dark-text: var(--color-text-primary);
+  --color-secondary-text: var(--color-text-secondary);
+  --color-background: var(--color-surface);
+  --color-card-background: var(--color-card);
+  --color-border-color: var(--color-border);
 
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  --shadow-soft: 0 8px 24px rgb(17 24 39 / 0.06);
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+@layer base {
+  * {
+    @apply border-border;
   }
-  a:hover {
-    color: #747bff;
+
+  body {
+    @apply m-0 min-h-screen bg-surface text-text-primary antialiased;
+    font-family: var(--font-sans);
   }
-  button {
-    background-color: #f9f9f9;
+
+  #root {
+    @apply min-h-screen;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply text-text-primary;
+  }
+
+  p {
+    @apply text-text-secondary;
   }
 }
+
