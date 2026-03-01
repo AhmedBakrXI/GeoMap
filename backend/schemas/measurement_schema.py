@@ -5,6 +5,8 @@ from datetime import datetime
 
 class MapPointBase(BaseModel):
     id: int
+    eq: Optional[str]
+    direction: Optional[str]
     time: Optional[str]
     latitude: Optional[float]
     longitude: Optional[float]

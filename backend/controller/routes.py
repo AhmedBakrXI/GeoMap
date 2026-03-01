@@ -19,7 +19,7 @@ async def get_history(
     before_id: Optional[int] = Query(None, description="Only return records with id <= this value. Use the max_id from the first page response for stable pagination."),
 ):
     async with async_session() as session:
-        # If no before_id provided, snapshot the current max id
+        # If no before_id provided then snapshot the current max id
         if before_id is None:
             before_id = await session.scalar(select(func.max(Measurement.id)))
             if before_id is None:
