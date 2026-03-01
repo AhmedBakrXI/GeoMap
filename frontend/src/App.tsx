@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
 import GeoMap from './components/GeoMap';
 import { connectWebSocket, fetchAllHistory } from './api/measurements';
@@ -11,6 +11,8 @@ function App() {
   const [errorMsg, setErrorMsg] = useState('');
   const [points, setPoints] = useState<MapPoint[]>([]);
   const [progress, setProgress] = useState({ page: 0, totalPages: 0 });
+  const [sliderStart, setSliderStart] = useState(0);   // percentage 0–100
+  const [sliderEnd, setSliderEnd] = useState(100);     // percentage 0–100
   const wsRef = useRef<{ close: () => void } | null>(null);
 
   const startLoadingHistory = useCallback(async () => {
@@ -49,7 +51,30 @@ function App() {
     return () => ws.close();
   }, [startLoadingHistory]);
 
-  // ── Connecting ──
+  // Sort points by time for slider filtering
+  const sortedPoints = useMemo(() => {
+    return [...points].filter((p) => p.time != null).sort((a, b) => a.time!.localeCompare(b.time!));
+  }, [points]);
+
+  // Filter points based on slider range
+  const filteredPoints = useMemo(() => {
+    if (sortedPoints.length === 0) return sortedPoints;
+    const startIdx = Math.round((sliderStart / 100) * (sortedPoints.length - 1));
+    const endIdx = Math.round((sliderEnd / 100) * (sortedPoints.length - 1));
+    return sortedPoints.slice(startIdx, endIdx + 1);
+  }, [sortedPoints, sliderStart, sliderEnd]);
+
+  // Last point time — always the latest point received (including WS)
+  const lastPointTime = points.length > 0
+    ? points.reduce((latest, p) =>
+        p.time && (!latest || p.time.localeCompare(latest) > 0) ? p.time : latest,
+      null as string | null)
+    : null;
+
+  // Slider range labels
+  const sliderStartTime = filteredPoints.length > 0 ? filteredPoints[0].time : null;
+  const sliderEndTime = filteredPoints.length > 0 ? filteredPoints[filteredPoints.length - 1].time : null;
+
   if (state === 'connecting') {
     return (
       <div className="h-screen flex items-center justify-center bg-surface">
@@ -61,7 +86,6 @@ function App() {
     );
   }
 
-  // ── Error ──
   if (state === 'error') {
     return (
       <div className="h-screen flex items-center justify-center bg-surface">
@@ -80,7 +104,6 @@ function App() {
     );
   }
 
-  // ── Loading history ──
   if (state === 'loading-history') {
     const pct = progress.totalPages > 0
       ? Math.round((progress.page / progress.totalPages) * 100)
@@ -104,10 +127,57 @@ function App() {
     );
   }
 
-  // ── Map ──
   return (
-    <div className="h-screen w-screen">
-      <GeoMap points={points} />
+    <div className="h-screen w-screen flex flex-col">
+      {/* Map fills all available space */}
+      <div className="flex-1 relative">
+        <GeoMap points={filteredPoints} />
+      </div>
+
+      {/* Status bar */}
+      <div className="h-14 bg-card border-t border-border flex items-center px-4 shrink-0">
+        {/* Left: last point time */}
+        <div className="text-sm text-text-secondary whitespace-nowrap">
+          <span className="font-medium text-text-primary">Last:</span>{' '}
+          {lastPointTime ?? '—'}
+        </div>
+
+        {/* Right: dual time range sliders */}
+        <div className="ml-auto flex items-center gap-3">
+          <span className="text-xs text-text-secondary whitespace-nowrap min-w-[85px]">
+            {sliderStartTime ?? '—'}
+          </span>
+          <div className="flex flex-col gap-0.5 w-48">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={sliderStart}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setSliderStart(Math.min(v, sliderEnd));
+              }}
+              className="w-full accent-primary"
+              title="Start time"
+            />
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={sliderEnd}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setSliderEnd(Math.max(v, sliderStart));
+              }}
+              className="w-full accent-primary"
+              title="End time"
+            />
+          </div>
+          <span className="text-xs text-text-secondary whitespace-nowrap min-w-24">
+            {sliderEndTime ?? '—'}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
