@@ -1,8 +1,17 @@
 import pandas as pd
 import asyncio
+import math
 from websocket.websocket_manager import manager
 from models.database import async_session
 from models.measurement import Measurement, COLUMN_MAPPING
+
+
+def sanitize_record(record: dict) -> dict:
+    """Replace NaN/inf values with None for JSON compatibility."""
+    return {
+        k: (None if isinstance(v, float) and (math.isnan(v) or math.isinf(v)) else v)
+        for k, v in record.items()
+    }
 
 
 class DataStreamer:
@@ -29,7 +38,7 @@ class DataStreamer:
             model_fields = set(COLUMN_MAPPING.values())
             chunk_renamed = chunk_renamed[[c for c in chunk_renamed.columns if c in model_fields]]
 
-            records = chunk_renamed.to_dict(orient="records")
+            records = [sanitize_record(r) for r in chunk_renamed.to_dict(orient="records")]
 
             # Store in database
             async with async_session() as session:
