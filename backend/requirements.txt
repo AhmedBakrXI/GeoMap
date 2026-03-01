@@ -2,3 +2,6 @@ fastapi
 uvicorn[standard]
 websockets
 pandas
+sqlalchemy
+aiosqlite
+pydantic
