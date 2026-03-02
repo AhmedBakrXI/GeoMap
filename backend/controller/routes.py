@@ -15,7 +15,7 @@ def health_check():
 @router.get("/history", response_model=PaginatedResponse)
 async def get_history(
     page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(100, ge=1, le=500, description="Items per page"),
+    page_size: int = Query(500, ge=1, le=500, description="Items per page"),
     before_id: Optional[int] = Query(None, description="Only return records with id <= this value. Use the max_id from the first page response for stable pagination."),
 ):
     async with async_session() as session:

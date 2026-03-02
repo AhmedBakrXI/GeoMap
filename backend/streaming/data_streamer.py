@@ -15,7 +15,7 @@ def sanitize_record(record: dict) -> dict:
 
 
 class DataStreamer:
-    def __init__(self, file_path, chunk_size=100):
+    def __init__(self, file_path, chunk_size=500):
         self.file_path = file_path
         self.chunk_size = chunk_size
 
@@ -45,14 +45,21 @@ class DataStreamer:
                 async with session.begin():
                     measurements = [Measurement(**record) for record in records]
                     session.add_all(measurements)
+                    await session.flush()  # assigns IDs
+                    # Attach DB ids to records for broadcast
+                    for m, rec in zip(measurements, records):
+                        rec["id"] = m.id
 
-            print(f"Stored and streaming chunk with {len(records)} records")
+            print(f"Stored and streaming chunk with {len(records)} records starting time: {records[0].get('time') if records else 'N/A'}")
 
-            # Broadcast via websocket
-            await manager.broadcast({
-                "type": "chunk",
-                "data": records
-            })
+            # Broadcast via websocket (never let WS errors stop the streamer)
+            try:
+                await manager.broadcast({
+                    "type": "chunk",
+                    "data": records
+                })
+            except Exception as e:
+                print(f"Broadcast failed (continuing): {e}")
 
             await asyncio.sleep(1)
 
