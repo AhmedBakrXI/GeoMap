@@ -1,0 +1,84 @@
+legends:
+  - name: "All-Multi RAT Connectivity Mode"
+    field: "multi_rat_connectivity_mode"
+    type: "string"
+    thresholds:
+      - value: "LTE"
+        color: "#0317fc"
+      - value: "LTE-5GNR"
+        color: "#6f1178"
+
+  - name: "All-MR-DC Cell RSRP[1]"
+    field: "serving_cell_ssb_rsrp"
+    type: "numeric"
+    thresholds:
+      - min: -.inf
+        max: -120
+        color: "#ff0000"
+      - min: -120
+        max: -110
+        color: "#ff8c00"
+      - min: -110
+        max: -100
+        color: "#ffff00"
+      - min: -100
+        max: -90
+        color: "#30db3c"
+      - min: -90
+        max: -80
+        color: "#00008b"
+      - min: -80
+        max: -70
+        color: "#0000ff"
+      - min: -70
+        max: .inf
+        color: "#000080"
+
+  - name: "All-MR-DC Cell RSRQ[1]"
+    field: "serving_cell_ssb_snr"
+    type: "numeric"
+    thresholds:
+      - min: -.inf
+        max: -20
+        color: "#ff0000"
+      - min: -20
+        max: -16
+        color: "#ff00ff"
+      - min: -16
+        max: -14
+        color: "#ffff00"
+      - min: -14
+        max: -12
+        color: "#00ff00"
+      - min: -12
+        max: -10
+        color: "#0000ff"
+      - min: -10
+        max: .inf
+        color: "#000080"
+
+  - name: "All-MR-DC Cell SINR[1]"
+    field: "serving_cell_ssb_snr"
+    type: "numeric"
+    thresholds:
+      - min: -.inf
+        max: -3
+        color: "#000000"
+      - min: -3
+        max: 0
+        color: "#ff0000"
+      - min: 0
+        max: 5
+        color: "#ffff00"
+      - min: 5
+        max: 10
+        color: "#00ff00"
+      - min: 10
+        max: 15
+        color: "#008000"
+      - min: 15
+        max: 20
+        color: "#0000ff"
+      - min: 20
+        max: .inf
+        color: "#000080"

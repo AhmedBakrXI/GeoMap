@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
 import GeoMap from './components/GeoMap';
+import LegendPanel from './components/LegendPanel';
+import RangeSlider from './components/RangeSlider';
 import { connectWebSocket, fetchAllHistory } from './api/measurements';
+import { fetchLegendConfig } from './api/legend';
 import type { MapPoint } from './types/measurement';
+import type { LegendConfig, LegendState } from './types/legend';
+import { buildDefaultState, loadLegendState, saveLegendState } from './types/legend';
 
 type AppState = 'connecting' | 'error' | 'loading-history' | 'ready';
 
@@ -13,15 +18,36 @@ function App() {
   const [progress, setProgress] = useState({ page: 0, totalPages: 0 });
   const [sliderStart, setSliderStart] = useState(0);   // percentage 0–100
   const [sliderEnd, setSliderEnd] = useState(100);     // percentage 0–100
+  const [legendConfig, setLegendConfig] = useState<LegendConfig | null>(null);
+  const [legendState, setLegendState] = useState<LegendState | null>(null);
   const wsRef = useRef<{ close: () => void } | null>(null);
+
+  // Load legend config on mount
+  useEffect(() => {
+    fetchLegendConfig().then((config) => {
+      setLegendConfig(config);
+      const saved = loadLegendState();
+      setLegendState(saved ?? buildDefaultState(config));
+    }).catch((err) => console.error('Failed to load legend config:', err));
+  }, []);
+
+  const handleLegendStateChange = useCallback((state: LegendState) => {
+    setLegendState(state);
+    saveLegendState(state);
+  }, []);
 
   const startLoadingHistory = useCallback(async () => {
     setState('loading-history');
     try {
-      const history = await fetchAllHistory(100, (_pagePoints, prog) => {
+      const history = await fetchAllHistory(500, (_pagePoints, prog) => {
         setProgress(prog);
       });
-      setPoints(history);
+      // Merge: history first, then any WS points that arrived during loading
+      setPoints((prev) => {
+        const seenIds = new Set(history.map((p) => p.id));
+        const wsOnly = prev.filter((p) => !seenIds.has(p.id));
+        return [...history, ...wsOnly];
+      });
       setState('ready');
     } catch {
       setState('error');
@@ -51,29 +77,51 @@ function App() {
     return () => ws.close();
   }, [startLoadingHistory]);
 
-  // Sort points by time for slider filtering
-  const sortedPoints = useMemo(() => {
-    return [...points].filter((p) => p.time != null).sort((a, b) => a.time!.localeCompare(b.time!));
+  const sortedIndices = useMemo(() => {
+    const indices: number[] = [];
+    for (let i = 0; i < points.length; i++) {
+      if (points[i].time != null) indices.push(i);
+    }
+    indices.sort((a, b) => points[a].time!.localeCompare(points[b].time!));
+    return indices;
   }, [points]);
 
-  // Filter points based on slider range
-  const filteredPoints = useMemo(() => {
-    if (sortedPoints.length === 0) return sortedPoints;
-    const startIdx = Math.round((sliderStart / 100) * (sortedPoints.length - 1));
-    const endIdx = Math.round((sliderEnd / 100) * (sortedPoints.length - 1));
-    return sortedPoints.slice(startIdx, endIdx + 1);
-  }, [sortedPoints, sliderStart, sliderEnd]);
+  // Build a Set of visible point IDs based on slider range
+  const visibleIds = useMemo(() => {
+    if (sortedIndices.length === 0) return null;
+    if (sliderStart === 0 && sliderEnd === 100) return null; // all visible
+    const startIdx = Math.round((sliderStart / 100) * (sortedIndices.length - 1));
+    const endIdx = Math.round((sliderEnd / 100) * (sortedIndices.length - 1));
+    const ids = new Set<number>();
+    for (let i = startIdx; i <= endIdx; i++) {
+      ids.add(points[sortedIndices[i]].id);
+    }
+    return ids;
+  }, [points, sortedIndices, sliderStart, sliderEnd]);
 
-  // Last point time — always the latest point received (including WS)
   const lastPointTime = points.length > 0
-    ? points.reduce((latest, p) =>
-        p.time && (!latest || p.time.localeCompare(latest) > 0) ? p.time : latest,
-      null as string | null)
+    ? points[points.length - 1].time ?? '—'
     : null;
 
   // Slider range labels
-  const sliderStartTime = filteredPoints.length > 0 ? filteredPoints[0].time : null;
-  const sliderEndTime = filteredPoints.length > 0 ? filteredPoints[filteredPoints.length - 1].time : null;
+  const sliderStartTime = sortedIndices.length > 0
+    ? points[sortedIndices[Math.round((sliderStart / 100) * (sortedIndices.length - 1))]]?.time
+    : null;
+  const sliderEndTime = sortedIndices.length > 0
+    ? points[sortedIndices[Math.round((sliderEnd / 100) * (sortedIndices.length - 1))]]?.time
+    : null;
+
+  // All active legend entries for GeoMap coloring
+  const activeLegends = useMemo(() => {
+    if (!legendConfig || !legendState) return [];
+    const indices = legendState.activeIndices ?? [];
+    return indices
+      .filter((idx) => legendConfig.legends[idx] != null)
+      .map((idx) => ({
+        entry: legendConfig.legends[idx],
+        visible: legendState.visibleThresholds[idx] ?? [],
+      }));
+  }, [legendConfig, legendState]);
 
   if (state === 'connecting') {
     return (
@@ -131,7 +179,18 @@ function App() {
     <div className="h-screen w-screen flex flex-col">
       {/* Map fills all available space */}
       <div className="flex-1 relative">
-        <GeoMap points={filteredPoints} />
+        <GeoMap
+          points={points}
+          activeLegends={activeLegends}
+          visibleIds={visibleIds}
+        />
+        {legendConfig && legendState && (
+          <LegendPanel
+            config={legendConfig}
+            legendState={legendState}
+            onStateChange={handleLegendStateChange}
+          />
+        )}
       </div>
 
       {/* Status bar */}
@@ -140,37 +199,25 @@ function App() {
         <div className="text-sm text-text-secondary whitespace-nowrap">
           <span className="font-medium text-text-primary">Last:</span>{' '}
           {lastPointTime ?? '—'}
+          {/* Display last point data */} 
+            {lastPointTime && points.length > 0 && (
+                <> - RSRP: {points[points.length - 1].serving_cell_ssb_rsrp ?? '—'} dBm, SNR: {points[points.length - 1].serving_cell_ssb_snr ?? '—'} dB, Mode: {points[points.length - 1].multi_rat_connectivity_mode ?? '—'}
+                </>
+            )}
         </div>
 
-        {/* Right: dual time range sliders */}
         <div className="ml-auto flex items-center gap-3">
-          <span className="text-xs text-text-secondary whitespace-nowrap min-w-[85px]">
+          <span className="text-xs text-text-secondary whitespace-nowrap min-w-24">
             {sliderStartTime ?? '—'}
           </span>
-          <div className="flex flex-col gap-0.5 w-48">
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={sliderStart}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setSliderStart(Math.min(v, sliderEnd));
+          <div className="w-56">
+            <RangeSlider
+              start={sliderStart}
+              end={sliderEnd}
+              onChange={(s, e) => {
+                setSliderStart(s);
+                setSliderEnd(e);
               }}
-              className="w-full accent-primary"
-              title="Start time"
-            />
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={sliderEnd}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setSliderEnd(Math.max(v, sliderStart));
-              }}
-              className="w-full accent-primary"
-              title="End time"
             />
           </div>
           <span className="text-xs text-text-secondary whitespace-nowrap min-w-24">

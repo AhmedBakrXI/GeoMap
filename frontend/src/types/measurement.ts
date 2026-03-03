@@ -6,7 +6,7 @@ export interface MapPoint {
   latitude: number | null;
   longitude: number | null;
   serving_cell_ssb_rsrp: number | null;
-  serving_cell_ssb_snr: number | null;
+  serving_cell_sinr_rx1: number | null;
   multi_rat_connectivity_mode: string | null;
 }
 

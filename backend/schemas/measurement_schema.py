@@ -14,7 +14,7 @@ class MapPointBase(BaseModel):
 
 class MapPointResponse(MapPointBase):
     serving_cell_ssb_rsrp: Optional[float]
-    serving_cell_ssb_snr: Optional[float]
+    serving_cell_sinr_rx1: Optional[float]
     multi_rat_connectivity_mode: Optional[str]
 
     class Config:

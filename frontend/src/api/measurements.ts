@@ -5,7 +5,7 @@ const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/api/ws/data';
 
 export async function fetchHistoryPage(
   page: number,
-  pageSize = 100,
+  pageSize = 500,
   beforeId?: number,
 ): Promise<PaginatedResponse> {
   const params = new URLSearchParams({
@@ -22,19 +22,20 @@ export async function fetchHistoryPage(
 }
 
 export async function fetchAllHistory(
-  pageSize = 100,
+  pageSize = 500,
   onPageLoaded?: (points: MapPoint[], progress: { page: number; totalPages: number }) => void,
 ): Promise<MapPoint[]> {
   // First call – snapshot max_id
   const first = await fetchHistoryPage(1, pageSize);
   const allPoints: MapPoint[] = [...first.data];
   onPageLoaded?.(first.data, { page: 1, totalPages: first.total_pages });
-
+  console.log(first)
   const maxId = first.max_id;
 
   // Fetch remaining pages using the snapshot
   for (let page = 2; page <= first.total_pages; page++) {
     const result = await fetchHistoryPage(page, pageSize, maxId);
+    console.log(result);
     allPoints.push(...result.data);
     onPageLoaded?.(result.data, { page, totalPages: first.total_pages });
   }

@@ -51,12 +51,18 @@ class DataStreamer:
                         rec["id"] = m.id
 
             print(f"Stored and streaming chunk with {len(records)} records starting time: {records[0].get('time') if records else 'N/A'}")
-
-            # Broadcast via websocket (never let WS errors stop the streamer)
+            # Broadcast only the fields the frontend needs
+            broadcast_fields = ("id", "eq", "direction", "time", "latitude", "longitude",
+                                "serving_cell_ssb_rsrp", "serving_cell_ssb_snr_rx1",
+                                "multi_rat_connectivity_mode")
+            slim_records = [
+                {k: rec.get(k) for k in broadcast_fields}
+                for rec in records
+            ]
             try:
                 await manager.broadcast({
                     "type": "chunk",
-                    "data": records
+                    "data": slim_records
                 })
             except Exception as e:
                 print(f"Broadcast failed (continuing): {e}")
