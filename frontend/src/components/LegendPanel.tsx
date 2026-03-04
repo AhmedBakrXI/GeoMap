@@ -10,12 +10,14 @@ interface LegendPanelProps {
   config: LegendConfig;
   legendState: LegendState;
   onStateChange: (state: LegendState) => void;
+  onEditClick?: () => void;
 }
 
 export default function LegendPanel({
   config,
   legendState,
   onStateChange,
+  onEditClick,
 }: LegendPanelProps) {
   const { activeIndices, visibleThresholds } = legendState;
 
@@ -46,8 +48,17 @@ export default function LegendPanel({
 
   return (
     <div className="absolute top-3 right-3 z-1000 bg-card/95 backdrop-blur-sm border border-border rounded-lg shadow-soft w-64 max-h-[80vh] overflow-y-auto">
-      <div className="px-3 py-2 border-b border-border">
+      <div className="px-3 py-2 border-b border-border flex items-center justify-between">
         <h3 className="text-sm font-semibold text-text-primary">Legend</h3>
+        {onEditClick && (
+          <button
+            onClick={onEditClick}
+            title="Edit legend YAML"
+            className="text-text-secondary hover:text-text-primary transition-colors cursor-pointer text-sm leading-none"
+          >
+            Edit
+          </button>
+        )}
       </div>
 
       <div className="p-2 space-y-1">

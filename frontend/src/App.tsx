@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import GeoMap from './components/GeoMap'
 import LegendPanel from './components/LegendPanel'
+import LegendEditor from './components/LegendEditor'
 import RangeSlider from './components/RangeSlider'
 import { connectWebSocket, fetchAllHistory } from './api/measurements'
 import { fetchLegendConfig } from './api/legend'
@@ -24,6 +25,7 @@ function App () {
   const [filterEndTime, setFilterEndTime] = useState<string | null>(null)
   const [legendConfig, setLegendConfig] = useState<LegendConfig | null>(null)
   const [legendState, setLegendState] = useState<LegendState | null>(null)
+  const [editorOpen, setEditorOpen] = useState(false)
   const wsRef = useRef<{ close: () => void } | null>(null)
 
   // Load legend config on mount
@@ -40,6 +42,13 @@ function App () {
   const handleLegendStateChange = useCallback((state: LegendState) => {
     setLegendState(state)
     saveLegendState(state)
+  }, [])
+
+  const handleLegendConfigApply = useCallback((config: LegendConfig) => {
+    setLegendConfig(config)
+    const newState = buildDefaultState(config)
+    setLegendState(newState)
+    saveLegendState(newState)
   }, [])
 
   const startLoadingHistory = useCallback(async () => {
@@ -255,8 +264,14 @@ function App () {
             config={legendConfig}
             legendState={legendState}
             onStateChange={handleLegendStateChange}
+            onEditClick={() => setEditorOpen(true)}
           />
         )}
+        <LegendEditor
+          open={editorOpen}
+          onClose={() => setEditorOpen(false)}
+          onApply={handleLegendConfigApply}
+        />
       </div>
 
       {/* Status bar */}
