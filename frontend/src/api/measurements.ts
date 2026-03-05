@@ -49,36 +49,58 @@ export function connectWebSocket(options: {
   onOpen?: () => void;
   onClose?: () => void;
   onError?: (error: Event) => void;
+  retries?: number;
+  retryDelay?: number;
 }): { close: () => void } {
-  const ws = new WebSocket(WS_URL);
+  const maxRetries = options.retries ?? 3;
+  const retryDelay = options.retryDelay ?? 1000;
+  let attempt = 0;
+  let ws: WebSocket | null = null;
+  let closed = false;
 
-  ws.onopen = () => {
-    console.log('[WS] Connected');
-    options.onOpen?.();
-  };
+  function connect() {
+    ws = new WebSocket(WS_URL);
 
-  ws.onmessage = (event) => {
-    try {
-      const message: WebSocketChunkMessage = JSON.parse(event.data);
-      if (message.type === 'chunk' && Array.isArray(message.data)) {
-        options.onMessage(message.data);
+    ws.onopen = () => {
+      attempt = 0;
+      console.log('[WS] Connected');
+      options.onOpen?.();
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const message: WebSocketChunkMessage = JSON.parse(event.data);
+        if (message.type === 'chunk' && Array.isArray(message.data)) {
+          options.onMessage(message.data);
+        }
+      } catch (err) {
+        console.error('[WS] Failed to parse message:', err);
       }
-    } catch (err) {
-      console.error('[WS] Failed to parse message:', err);
-    }
-  };
+    };
 
-  ws.onclose = () => {
-    console.log('[WS] Disconnected');
-    options.onClose?.();
-  };
+    ws.onclose = () => {
+      console.log('[WS] Disconnected');
+      options.onClose?.();
+    };
 
-  ws.onerror = (err) => {
-    console.error('[WS] Error:', err);
-    options.onError?.(err);
-  };
+    ws.onerror = (err) => {
+      console.error(`[WS] Error (attempt ${attempt + 1}/${maxRetries + 1}):`, err);
+      if (!closed && attempt < maxRetries) {
+        attempt++;
+        console.log(`[WS] Retrying in ${retryDelay}ms…`);
+        setTimeout(connect, retryDelay);
+      } else if (!closed) {
+        options.onError?.(err);
+      }
+    };
+  }
+
+  connect();
 
   return {
-    close: () => ws.close(),
+    close: () => {
+      closed = true;
+      ws?.close();
+    },
   };
 }
