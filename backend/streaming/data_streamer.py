@@ -51,23 +51,16 @@ class DataStreamer:
                         rec["id"] = m.id
 
             print(f"Stored and streaming chunk with {len(records)} records starting time: {records[0].get('time') if records else 'N/A'}")
-            # Broadcast only the fields the frontend needs
-            broadcast_fields = ("id", "eq", "direction", "time", "latitude", "longitude",
-                                "serving_cell_ssb_rsrp", "serving_cell_ssb_snr_rx1",
-                                "multi_rat_connectivity_mode")
-            slim_records = [
-                {k: rec.get(k) for k in broadcast_fields}
-                for rec in records
-            ]
+            # Broadcast full records – per-connection field filtering happens in the manager
             try:
                 await manager.broadcast({
                     "type": "chunk",
-                    "data": slim_records
+                    "data": records
                 })
             except Exception as e:
                 print(f"Broadcast failed (continuing): {e}")
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
 
         print("Finished streaming all data.")
 

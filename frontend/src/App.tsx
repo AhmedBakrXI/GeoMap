@@ -4,9 +4,12 @@ import GeoMap from './components/GeoMap'
 import LegendPanel from './components/LegendPanel'
 import LegendEditor from './components/LegendEditor'
 import RangeSlider from './components/RangeSlider'
+import FieldSelector from './components/FieldSelector'
+import { loadSavedFields, saveFieldSelection } from './utils/fieldStorage'
 import { connectWebSocket, fetchAllHistory } from './api/measurements'
 import { fetchLegendConfig } from './api/legend'
 import type { MapPoint } from './types/measurement'
+import { DEFAULT_OPTIONAL_FIELDS } from './types/measurement'
 import type { LegendConfig, LegendState } from './types/legend'
 import {
   buildDefaultState,
@@ -26,7 +29,10 @@ function App () {
   const [legendConfig, setLegendConfig] = useState<LegendConfig | null>(null)
   const [legendState, setLegendState] = useState<LegendState | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
-  const wsRef = useRef<{ close: () => void } | null>(null)
+  const [selectedFields, setSelectedFields] = useState<string[]>(
+    () => loadSavedFields() ?? DEFAULT_OPTIONAL_FIELDS
+  )
+  const wsRef = useRef<{ close: () => void; setFields: (f: string[]) => void } | null>(null)
 
   // Load legend config on mount
   useEffect(() => {
@@ -56,7 +62,7 @@ function App () {
     try {
       const history = await fetchAllHistory(500, (_pagePoints, prog) => {
         setProgress(prog)
-      })
+      }, selectedFields)
       // Merge: history first, then any WS points that arrived during loading
       setPoints(prev => {
         const seenIds = new Set(history.map(p => p.id))
@@ -68,7 +74,7 @@ function App () {
       setState('error')
       setErrorMsg('Failed to load history data.')
     }
-  }, [])
+  }, [selectedFields])
 
   useEffect(() => {
     const ws = connectWebSocket({
@@ -89,12 +95,37 @@ function App () {
       },
       onClose: () => {
         console.log('[App] WebSocket closed')
-      }
+      },
+      fields: selectedFields,
     })
 
     wsRef.current = ws
     return () => ws.close()
-  }, [startLoadingHistory])
+  }, [startLoadingHistory, selectedFields])
+
+  const handleFieldsApply = useCallback(async (fields: string[]) => {
+    setSelectedFields(fields)
+    saveFieldSelection(fields)
+    // Update WebSocket field filter immediately
+    wsRef.current?.setFields(fields)
+    // Reload history with the new field set
+    setState('loading-history')
+    setPoints([])
+    try {
+      const history = await fetchAllHistory(500, (_pagePoints, prog) => {
+        setProgress(prog)
+      }, fields)
+      setPoints(prev => {
+        const seenIds = new Set(history.map(p => p.id))
+        const wsOnly = prev.filter(p => !seenIds.has(p.id))
+        return [...history, ...wsOnly]
+      })
+      setState('ready')
+    } catch {
+      setState('error')
+      setErrorMsg('Failed to reload history with updated fields.')
+    }
+  }, [])
 
   const sortedIndices = useMemo(() => {
     const indices: number[] = []
@@ -258,6 +289,7 @@ function App () {
           points={points}
           activeLegends={activeLegends}
           visibleIds={visibleIds}
+          selectedFields={selectedFields}
         />
         {legendConfig && legendState && (
           <LegendPanel
@@ -277,23 +309,26 @@ function App () {
       {/* Status bar */}
       <div className='h-14 bg-card border-t border-border flex items-center px-4 shrink-0'>
         {/* Left: last point time */}
-        <div className='text-sm text-text-secondary whitespace-nowrap'>
+        <div className='text-sm text-text-secondary whitespace-nowrap overflow-hidden text-ellipsis'>
           <span className='font-medium text-text-primary'>Last:</span>{' '}
           {lastPointTime ?? '—'}
-          {/* Display last point data */}
-          {lastPointTime && points.length > 0 && (
-            <>
-              {' '}
-              - RSRP: {points[points.length - 1].serving_cell_ssb_rsrp ??
-                '—'}{' '}
-              dBm, SNR: {points[points.length - 1].serving_cell_ssb_snr ?? '—'}{' '}
-              dB, Mode:{' '}
-              {points[points.length - 1].multi_rat_connectivity_mode ?? '—'}
-            </>
-          )}
+          {/* Display available optional fields from the last point */}
+          {lastPointTime && points.length > 0 && (() => {
+            const last = points[points.length - 1];
+            const extras = selectedFields
+              .filter(f => last[f] != null)
+              .slice(0, 3)
+              .map(f => `${f}: ${last[f]}`)
+              .join(', ');
+            return extras ? <>{' '}- {extras}</> : null;
+          })()}
         </div>
 
         <div className='ml-auto flex items-center gap-3'>
+          <FieldSelector
+            selectedFields={selectedFields}
+            onApply={handleFieldsApply}
+          />
           <span className='text-xs text-text-secondary whitespace-nowrap min-w-24'>
             {sliderStartTime ?? '—'}
           </span>

@@ -8,8 +8,8 @@ legends:
       - value: "LTE-5GNR"
         color: "#6f1178"
 
-  - name: "All-MR-DC Cell RSRP[1]"
-    field: "serving_cell_ssb_rsrp"
+  - name: "serving_cell_ssb_snr"
+    field: "serving_cell_ssb_snr"
     type: "numeric"
     thresholds:
       - min: -.inf

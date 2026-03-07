@@ -1,9 +1,18 @@
 from fastapi import APIRouter, WebSocket, Query
 from typing import Optional
+import json
 from sqlalchemy import select, func
 from models.database import async_session
 from models.measurement import Measurement
-from schemas.measurement_schema import MapPointResponse, PaginatedResponse
+from schemas.measurement_schema import (
+    MapPointResponse,
+    PaginatedResponse,
+    MANDATORY_FIELDS,
+    OPTIONAL_FIELDS,
+    OPTIONAL_FIELDS_SET,
+    ALL_FIELDS,
+    filter_record,
+)
 
 router = APIRouter()
 
@@ -12,12 +21,29 @@ def health_check():
     return {"status": "healthy"}
 
 
-@router.get("/history", response_model=PaginatedResponse)
+@router.get("/fields")
+def get_available_fields():
+    """Return the list of mandatory and optional data fields."""
+    return {
+        "mandatory": sorted(MANDATORY_FIELDS),
+        "optional": OPTIONAL_FIELDS,
+    }
+
+
+@router.get("/history")
 async def get_history(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(500, ge=1, le=500, description="Items per page"),
     before_id: Optional[int] = Query(None, description="Only return records with id <= this value. Use the max_id from the first page response for stable pagination."),
+    fields: Optional[str] = Query(None, description="Comma-separated optional field names to include. Omit to receive all fields."),
 ):
+    # Determine which fields to include
+    if fields is not None:
+        requested = {f.strip() for f in fields.split(",") if f.strip() in OPTIONAL_FIELDS_SET}
+        active_fields = MANDATORY_FIELDS | requested
+    else:
+        active_fields = ALL_FIELDS  # no filter → return everything
+
     async with async_session() as session:
         # If no before_id provided then snapshot the current max id
         if before_id is None:
@@ -47,7 +73,13 @@ async def get_history(
     total_pages = (total + page_size - 1) // page_size if total else 0
 
     return PaginatedResponse(
-        data=[MapPointResponse.model_validate(m) for m in measurements],
+        data=[
+            filter_record(
+                MapPointResponse.model_validate(m).model_dump(),
+                active_fields,
+            )
+            for m in measurements
+        ],
         page=page,
         page_size=page_size,
         total=total,
@@ -62,7 +94,13 @@ async def websocket_data_stream(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            await websocket.receive_text()  
+            text = await websocket.receive_text()
+            try:
+                msg = json.loads(text)
+                if msg.get("type") == "set_fields":
+                    manager.set_fields(websocket, msg.get("fields", []))
+            except (json.JSONDecodeError, ValueError):
+                pass
     except Exception as e:
         print(f"WebSocket error: {e}")
     finally:

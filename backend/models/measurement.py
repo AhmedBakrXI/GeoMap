@@ -45,6 +45,7 @@ COLUMN_MAPPING = {
 }
 
 
+
 class Measurement(Base):
     __tablename__ = "measurements"
 

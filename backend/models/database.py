@@ -12,6 +12,6 @@ class Base(DeclarativeBase):
 
 
 async def init_db():
-    from models.measurement import Measurement  # noqa: F401
+    from models.measurement import Measurement
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
