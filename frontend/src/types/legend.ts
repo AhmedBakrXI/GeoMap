@@ -15,7 +15,6 @@ export interface StringThreshold {
 }
 
 export interface LegendEntry {
-  name: string;
   field: keyof MapPoint;
   type: 'numeric' | 'string';
   thresholds: NumericThreshold[] | StringThreshold[];

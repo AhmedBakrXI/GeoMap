@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { MapPoint } from '../types/measurement';
-import { MANDATORY_FIELDS } from '../types/measurement';
+import { MANDATORY_FIELDS, fieldLabel } from '../types/measurement';
 import type { LegendEntry } from '../types/legend';
 import { getPointColor, getPointColorMulti } from '../types/legend';
 
@@ -24,7 +24,7 @@ const HIDDEN_COLOR = '#cccccc';
 const DOT_FILL_OPACITY = 0.8;
 
 /** Pixel distance each legend lane is offset from the original path. */
-const LEGEND_OFFSET_PX = 40;
+const LEGEND_OFFSET_PX = 20;
 
 // all circle markers paint on a single canvas
 const canvasRenderer = L.canvas({ padding: 0.5 });
@@ -185,13 +185,13 @@ export default function GeoMap({ points, activeLegends, visibleIds, selectedFiel
     const sf = selectedFieldsRef.current ?? [];
     let extras = sf
       .filter(f => !mandatorySet.has(f as typeof MANDATORY_FIELDS[number]) && point[f] != null)
-      .map(f => `<b>${f}:</b> ${point[f]}`)
+      .map(f => `<b>${fieldLabel(f)}:</b> ${point[f]}`)
       .join('<br/>');
     if (legendEntry) {
       const val = point[legendEntry.field];
-      extras = `<b>${legendEntry.name}:</b> ${val ?? '—'}<br/>` + extras;
+      extras = `<b>${fieldLabel(legendEntry.field.toString())}:</b> ${val ?? '—'}<br/>` + extras;
     }
-    return `<b>Time:</b> ${point.time ?? '—'}<br/>${extras || ''}`;
+    return `<b>${fieldLabel('time')}:</b> ${point.time ?? '—'}<br/>${extras || ''}`;
   };
 
   /** Clear all markers and reset counters */

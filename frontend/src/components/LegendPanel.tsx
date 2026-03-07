@@ -5,6 +5,7 @@ import type {
   StringThreshold,
 } from '../types/legend';
 import { formatBound } from '../types/legend';
+import { fieldLabel } from '../types/measurement';
 
 interface LegendPanelProps {
   config: LegendConfig;
@@ -53,7 +54,7 @@ export default function LegendPanel({
         {onEditClick && (
           <button
             onClick={onEditClick}
-            title="Edit legend YAML"
+            title="Edit legend configuration"
             className="text-text-secondary hover:text-text-primary transition-colors cursor-pointer text-sm leading-none"
           >
             Edit
@@ -76,7 +77,7 @@ export default function LegendPanel({
                   className="accent-primary w-3.5 h-3.5"
                 />
                 <span className={`text-xs font-medium ${isActive ? 'text-text-primary' : 'text-text-secondary'}`}>
-                  {entry.name}
+                  {fieldLabel(entry.field.toString())}
                 </span>
               </label>
 

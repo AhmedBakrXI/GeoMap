@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FIELD_GROUPS, MANDATORY_FIELDS } from '../types/measurement';
+import { FIELD_GROUPS, MANDATORY_FIELDS, fieldLabel } from '../types/measurement';
 import { saveFieldSelection } from '../utils/fieldStorage';
 
 interface FieldSelectorProps {
@@ -107,7 +107,7 @@ export default function FieldSelector({ selectedFields, onApply }: FieldSelector
             <div className="flex flex-wrap gap-1">
               {MANDATORY_FIELDS.map(f => (
                 <span key={f} className="px-2 py-0.5 text-[11px] bg-primary/15 text-primary rounded">
-                  {f}
+                  {fieldLabel(f)}
                 </span>
               ))}
             </div>
@@ -132,7 +132,7 @@ export default function FieldSelector({ selectedFields, onApply }: FieldSelector
                       onChange={() => toggle(field)}
                       className="accent-primary w-3.5 h-3.5"
                     />
-                    {field}
+                    {fieldLabel(field)}
                   </label>
                 ))}
               </div>

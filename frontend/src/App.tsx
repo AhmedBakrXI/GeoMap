@@ -7,7 +7,7 @@ import RangeSlider from './components/RangeSlider'
 import FieldSelector from './components/FieldSelector'
 import { loadSavedFields, saveFieldSelection } from './utils/fieldStorage'
 import { connectWebSocket, fetchAllHistory } from './api/measurements'
-import { fetchLegendConfig } from './api/legend'
+import { loadLegendConfig } from './api/legend'
 import type { MapPoint } from './types/measurement'
 import { DEFAULT_OPTIONAL_FIELDS } from './types/measurement'
 import type { LegendConfig, LegendState } from './types/legend'
@@ -36,13 +36,10 @@ function App () {
 
   // Load legend config on mount
   useEffect(() => {
-    fetchLegendConfig()
-      .then(config => {
-        setLegendConfig(config)
-        const saved = loadLegendState()
-        setLegendState(saved ?? buildDefaultState(config))
-      })
-      .catch(err => console.error('Failed to load legend config:', err))
+    const config = loadLegendConfig()
+    setLegendConfig(config)
+    const saved = loadLegendState()
+    setLegendState(saved ?? buildDefaultState(config))
   }, [])
 
   const handleLegendStateChange = useCallback((state: LegendState) => {
@@ -303,6 +300,8 @@ function App () {
           open={editorOpen}
           onClose={() => setEditorOpen(false)}
           onApply={handleLegendConfigApply}
+          currentConfig={legendConfig}
+          selectedFields={selectedFields}
         />
       </div>
 
@@ -313,15 +312,15 @@ function App () {
           <span className='font-medium text-text-primary'>Last:</span>{' '}
           {lastPointTime ?? '—'}
           {/* Display available optional fields from the last point */}
-          {lastPointTime && points.length > 0 && (() => {
+          {/* {lastPointTime && points.length > 0 && (() => {
             const last = points[points.length - 1];
             const extras = selectedFields
               .filter(f => last[f] != null)
               .slice(0, 3)
-              .map(f => `${f}: ${last[f]}`)
+              .map(f => `${fieldLabel(f)}: ${last[f]}`)
               .join(', ');
             return extras ? <>{' '}- {extras}</> : null;
-          })()}
+          })()} */}
         </div>
 
         <div className='ml-auto flex items-center gap-3'>
